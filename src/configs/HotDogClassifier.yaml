@@ -7,29 +7,34 @@ hydra:
   run:
     dir: ./outputs/${params.model}/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
-device: 'mps'
-runs: 1
+################# Experiment Settings #################
+device: 'cpu'
 debug: False
+experiment_name: "TEST"
+n_devices: 1
 
+################# W&B Settings #################
 wandb:
   use_wandb: True
   project: "HotDog Classifier"
   group: ${params.model}
 
-# define metrics and which to track
-metrics: ['acc','loss']
-track_metric: 'acc'
-track_splits: ['Train','Test']
 
-# define hyperparameters
+################# Metrics Settings #################
+metrics: ['acc','loss','f1','precision','recall']
+track_metric: 'loss'
+log_every_n: 1
+
+
+################# Hyperparameters #################
 params:
   # define model
   model: 'BASIC_CNN'
   n_classes: 10
+  verbose: True
 
   # param related to dataloader and data
   workers: 1
-  train_size: 0.4
   augment: True 
   # etc
 
@@ -39,7 +44,3 @@ params:
   bs: 64
   weight_decay: 0
   epochs: 10
-
-
-
-
