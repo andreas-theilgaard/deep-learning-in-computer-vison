@@ -1,6 +1,32 @@
-# Deep Learning in Computer Vision
+Introduction to deep learning in computer vision
+==============================
 
-A short description of the project.
+About
+------------
+This repo contains the work for the different projects for the course introduction to deep learning in computer vision.
+
+Environment Setup
+------------
+Activate your virtual environment
+```
+source <your_env>/bin/activate
+```
+If you do not already have one then run
+
+```
+python -m venv <your_env>
+```
+
+Then install the local package
+```
+pip install -e . 
+```
+
+Finally, install any dependency to be able to run the project
+```
+pip install -r requirements.txt
+```
+
 
 ## Project structure
 
