@@ -1,0 +1,45 @@
+defaults:
+  - _self_
+
+version: 'HotDog Classifier v1'
+
+hydra:
+  run:
+    dir: ./outputs/${params.model}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+device: 'mps'
+runs: 1
+debug: False
+
+wandb:
+  use_wandb: True
+  project: "HotDog Classifier"
+  group: ${params.model}
+
+# define metrics and which to track
+metrics: ['acc','loss']
+track_metric: 'acc'
+track_splits: ['Train','Test']
+
+# define hyperparameters
+params:
+  # define model
+  model: 'BASIC_CNN'
+  n_classes: 10
+
+  # param related to dataloader and data
+  workers: 1
+  train_size: 0.4
+  augment: True 
+  # etc
+
+  # model related params
+  optimizer: 'Adam'
+  lr: 0.01
+  bs: 64
+  weight_decay: 0
+  epochs: 10
+
+
+
+
