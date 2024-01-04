@@ -180,3 +180,4 @@ cython_debug/
 /outputs
 /wandb
 /dtu_dlcv
+/lightning_logs

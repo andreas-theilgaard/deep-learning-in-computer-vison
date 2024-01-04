@@ -15,7 +15,7 @@ n_devices: 1
 
 ################# W&B Settings #################
 wandb:
-  use_wandb: True
+  use_wandb: False
   project: "HotDog Classifier"
   group: ${params.model}
 
@@ -34,13 +34,21 @@ params:
   verbose: True
 
   # param related to dataloader and data
-  workers: 1
-  augment: True 
-  # etc
+  workers: 3
+  augment: False
+  image_size: 128
+  normalize: False
 
   # model related params
   optimizer: 'Adam'
   lr: 0.01
   bs: 64
   weight_decay: 0
-  epochs: 10
+  epochs: 100
+
+  enable_dropout: True
+  dropout_rate: 0.25
+
+  # ONLY applciable for effcientnet
+  pretrained: True
+  freeze_params: 0.9 # [0,1], 1 => freeze all weights except head

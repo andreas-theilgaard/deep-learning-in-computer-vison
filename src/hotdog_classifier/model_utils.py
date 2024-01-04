@@ -1,5 +1,5 @@
 import torch
-from src.hotdog_classifier.models import BASIC_CNN
+from src.hotdog_classifier.models import BASIC_CNN,efficientnet
 
 def configure_optimizer(config,model):
     if config.params.optimizer == 'Adam':
@@ -9,7 +9,9 @@ def configure_optimizer(config,model):
 
 def get_model(config):
     if config.params.model == 'BASIC_CNN':
-        return BASIC_CNN(config.params.n_classes)
+        return BASIC_CNN(config.params)
+    elif config.params.model == 'efficientnet':
+        return efficientnet(config=config)
 
 def get_loss(outputs,labels,criterion,config):
     if config.params.n_classes ==1:
