@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import wandb
 import colorcet as cc
 import numpy as np
-
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 class HotDogClassifier(pl.LightningModule):
     def __init__(self, config,normalizer=None):
@@ -42,6 +43,13 @@ class HotDogClassifier(pl.LightningModule):
         loss = get_loss(outputs=outputs,labels=labels,criterion=self.criterion,config=self.config)
         _,preds = get_probs_and_preds(outputs=outputs,config=self.config)
         self.log_metrics(type_='train',loss=loss,preds=preds,labels=labels,images=images,batch_idx=batch_idx)
+
+        if batch_idx ==0:
+            self.train_preds_epoch = preds
+            self.train_labels_epoch = labels
+        else:
+            self.train_preds_epoch = torch.cat((self.train_preds_epoch, preds), 0)
+            self.train_labels_epoch = torch.cat((self.train_labels_epoch, labels), 0)  
         return loss   
     
     def validation_step(self, batch, batch_idx):
@@ -50,7 +58,29 @@ class HotDogClassifier(pl.LightningModule):
         loss = get_loss(outputs=outputs,labels=labels,criterion=self.criterion,config=self.config)
         _,preds = get_probs_and_preds(outputs=outputs,config=self.config)
         self.log_metrics(type_='test',loss=loss,preds=preds,labels=labels,images=images,batch_idx=batch_idx)
+
+        if batch_idx ==0:
+            self.val_preds_epoch = preds
+            self.val_labels_epoch = labels
+        else:
+            self.val_preds_epoch = torch.cat((self.val_preds_epoch, preds), 0)
+            self.val_labels_epoch = torch.cat((self.val_labels_epoch, labels), 0)  
         return loss
+
+    def on_train_epoch_end(self):
+        if self.current_epoch%10==0:
+            conf_matrix = confusion_matrix(self.train_labels_epoch.cpu(), self.train_preds_epoch.cpu())
+            self.log_confusion_matrix(conf_matrix,'train')
+
+    def on_validation_epoch_end(self):
+        if self.current_epoch%10==0:
+            conf_matrix = confusion_matrix(self.val_labels_epoch.cpu(), self.val_preds_epoch.cpu())
+            self.log_confusion_matrix(conf_matrix,'test')
+
+    def on_test_epoch_end(self):
+        if self.current_epoch%10==0:
+            conf_matrix = confusion_matrix(self.test_labels_epoch.cpu(), self.test_preds_epoch.cpu())
+            self.log_confusion_matrix(conf_matrix,'Final_test')
     
     def test_step(self, batch, batch_idx):
         torch.set_grad_enabled(True)
@@ -59,8 +89,17 @@ class HotDogClassifier(pl.LightningModule):
         loss = get_loss(outputs=outputs,labels=labels,criterion=self.criterion,config=self.config)
         _,preds = get_probs_and_preds(outputs=outputs,config=self.config)
         self.log_metrics(type_='Final_test',loss=loss,preds=preds,labels=labels,images=images,batch_idx=batch_idx)
+
+        if batch_idx ==0:
+            self.test_preds_epoch = preds
+            self.test_labels_epoch = labels
+        else:
+            self.test_preds_epoch = torch.cat((self.preds_epoch, preds), 0)
+            self.test_labels_epoch = torch.cat((self.labels_epoch, labels), 0)  
         return loss     
     
+
+    ################## Log functions ######################
     def log_metrics(self,type_,loss,preds,labels,images=None,batch_idx=None):
         self.log(f"{type_}_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         for metric in self.config.metrics:
@@ -75,7 +114,7 @@ class HotDogClassifier(pl.LightningModule):
                     if i>=25:
                         break
                     image_normalized = images[i] if not self.config.params.normalize else self.normalizer.denormalize(images[i])
-                    ax.imshow(image_normalized.permute(1,2,0).detach().cpu().numpy())
+                    ax.imshow(((image_normalized.float().permute(1,2,0).detach().cpu().numpy())*255).astype('uint8'))
                     ax.axis('off')
                     pred,label = self.mapper[preds[i].detach().item()],self.mapper[labels[i].detach().item()]
                     color = 'green' if pred==label else 'red'
@@ -88,7 +127,37 @@ class HotDogClassifier(pl.LightningModule):
                 if batch_idx in [0,2,4,6,8,10,16,20]:
                     fig = self.plot_grid(images=images[0:4,:])
                     self.logger.experiment.log({f"SmoothGrad {type_} Batch {batch_idx}": wandb.Image(fig)})  
+    
+    def plot_grid(self,images,std_list=[0,0.05,0.1,0.2,0.3,0.5],n_samples=25,norm=True):
+        std_ranges = ['image']+std_list
+        fig,axes = plt.subplots(images.shape[0],len(std_ranges),figsize=(15,8),tight_layout=True)
+        for image_i in range(images.shape[0]):
+            for col_index,std in enumerate(std_ranges):
+                if std != "image":
+                    saliency_map = self.SmoothGrad(image=images[image_i],std=std,n_samples=n_samples)
+                    bw_mask = self.make_black_white(saliency_map.numpy())
+                    if norm:
+                        bw_mask = self.normalize(bw_mask)
+                        (vmin, vmax) = (0, 1)
+                    axes[image_i,col_index].imshow(bw_mask, cmap=cc.cm.gray, alpha=None, vmin=vmin, vmax=vmax, interpolation='lanczos')
+                else:
+                    image_normalized = images[image_i] if not self.config.params.normalize else self.normalizer.denormalize(images[image_i])
+                    axes[image_i,col_index].imshow(((image_normalized.float().permute(1,2,0).detach().cpu().numpy())*255).astype('uint8'))
 
+                if image_i==0:
+                    axes[image_i,col_index].set_title(std)
+                axes[image_i,col_index].axis('off')
+        return fig
+
+    def log_confusion_matrix(self,conf_matrix,type_):
+        fig, ax = plt.subplots(figsize=(10, 10))
+        sns.heatmap(conf_matrix, annot=True, ax=ax, cmap='Blues', fmt='g')
+        ax.set_xlabel('Predicted Labels')
+        ax.set_ylabel('True Labels')
+        ax.set_title(f"Confusion Matrix {type_}")
+        self.logger.experiment.log({f"Confusion Matrix {type_}": wandb.Image(fig)})  
+
+    ################## Helpers ######################
     def get_mask(self,image_tensor, target_class=None):
         image_tensor = image_tensor.clone()
         image_tensor.requires_grad = True
@@ -137,24 +206,4 @@ class HotDogClassifier(pl.LightningModule):
     def make_black_white(self,mask):
         return self.make_grayscale(np.abs(mask))
 
-    def plot_grid(self,images,std_list=[0,0.05,0.1,0.2,0.3,0.5],n_samples=25,norm=True):
-        std_ranges = ['image']+std_list
-        fig,axes = plt.subplots(images.shape[0],len(std_ranges),figsize=(15,8),tight_layout=True)
-        for image_i in range(images.shape[0]):
-            for col_index,std in enumerate(std_ranges):
-                if std != "image":
-                    saliency_map = self.SmoothGrad(image=images[image_i],std=std,n_samples=n_samples)
-                    bw_mask = self.make_black_white(saliency_map.numpy())
-                    if norm:
-                        bw_mask = self.normalize(bw_mask)
-                        (vmin, vmax) = (0, 1)
-                    axes[image_i,col_index].imshow(bw_mask, cmap=cc.cm.gray, alpha=None, vmin=vmin, vmax=vmax, interpolation='lanczos')
-                else:
-                    image_normalized = images[image_i] if not self.config.params.normalize else self.normalizer.denormalize(images[image_i])
-                    axes[image_i,col_index].imshow(image_normalized.cpu().permute(1,2,0).numpy())
-
-                if image_i==0:
-                    axes[image_i,col_index].set_title(std)
-                axes[image_i,col_index].axis('off')
-        return fig
 

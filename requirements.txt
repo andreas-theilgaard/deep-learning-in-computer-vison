@@ -24,3 +24,7 @@ jupyterlab==4.0.10
 jupyterlab-widgets==3.0.9
 jupyterlab_pygments==0.3.0
 jupyterlab_server==2.25.2
+timm==0.9.12
+colorcet==3.0.1
+seaborn==0.13.1
+

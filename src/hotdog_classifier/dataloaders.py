@@ -34,7 +34,6 @@ class Hotdog_NotHotdog(torch.utils.data.Dataset):
         X = self.transform(image)
         return X, y
 
-
 class normalize_data:
     def __init__(self,config):
         self.config = config
@@ -44,7 +43,8 @@ class normalize_data:
         train_transform = transforms.Compose([transforms.Resize((size, size)), 
                                             transforms.ToTensor()])
         batch_size = 1
-        trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
+        trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                            download=True, transform=train_transform)#Hotdog_NotHotdog(train=True, transform=train_transform)
         train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=self.config.workers)
         means = torch.stack([batch[0].mean(dim=[0,2,3]) for batch in train_loader]).mean(0)
         stds = torch.stack([batch[0][0].std(1).std(1) for batch in train_loader]).std(0)
@@ -81,6 +81,11 @@ def get_transformations(config):
 
     return transforms.Compose(train_transformations),transforms.Compose(test_transformations),normalizer
 
+def get_class_dist(loader):
+    labels = torch.cat([labels for _, labels in loader], dim=0)
+    labels_percent = (torch.bincount(labels)/len(labels)).tolist()
+    return [f"{x:.2f}" for x in labels_percent]
+
 def get_data(config):
     train_transform,test_transform,normalizer = get_transformations(config)
 
@@ -89,4 +94,8 @@ def get_data(config):
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=config.workers)
     testset = Hotdog_NotHotdog(train=False, transform=test_transform)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=config.workers)
+    print("-----------------------------------------------")
+    print(f"Train dataset: {len(trainset)} samples, class distribution is {get_class_dist(train_loader)}")
+    print(f"Test dataset: {len(testset)} samples class distribution is {get_class_dist(test_loader)}")
+    print("-----------------------------------------------")
     return train_loader,test_loader,normalizer

@@ -47,7 +47,7 @@ def main(config):
     callbacks = [checkpoint_callback]
     if config.params.early_stopping:
         early_stop_callback = EarlyStopping(monitor=f"test_{config.track_metric}", min_delta=0.00, patience=30, verbose=True, mode="max")
-        callbacks.append()
+        callbacks.append(early_stop_callback)
 
     trainer = pl.Trainer(
         devices=config.n_devices, 
