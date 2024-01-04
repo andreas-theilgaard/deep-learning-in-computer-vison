@@ -33,6 +33,3 @@ def create_description(yaml_configuration=None,extra_description=None):
     description+=header(50)
     print(description)
 
-class VanillaGradient:
-    def __init__(self, model):
-        super(VanillaGradient, self).__init__(model)

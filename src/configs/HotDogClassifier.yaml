@@ -8,14 +8,14 @@ hydra:
     dir: ./outputs/${params.model}/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 ################# Experiment Settings #################
-device: 'cpu'
+device: 'cuda'
 debug: False
-experiment_name: "TEST"
+experiment_name: "efficientnet_increased_image_size"
 n_devices: 1
 
 ################# W&B Settings #################
 wandb:
-  use_wandb: False
+  use_wandb: True
   project: "HotDog Classifier"
   group: ${params.model}
 
@@ -29,22 +29,23 @@ log_every_n: 1
 ################# Hyperparameters #################
 params:
   # define model
-  model: 'BASIC_CNN'
-  n_classes: 10
+  model: 'efficientnet'
+  n_classes: 2
   verbose: True
 
   # param related to dataloader and data
-  workers: 3
+  workers: 1
   augment: False
-  image_size: 128
-  normalize: False
+  image_size: 256
+  normalize: True
 
   # model related params
   optimizer: 'Adam'
-  lr: 0.01
+  lr: 0.01 # 0.0001 BASIC_CNN
   bs: 64
   weight_decay: 0
-  epochs: 100
+  epochs: 1
+  early_stopping: False
 
   enable_dropout: True
   dropout_rate: 0.25

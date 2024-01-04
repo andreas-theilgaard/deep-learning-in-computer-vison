@@ -40,27 +40,27 @@ class normalize_data:
         self.config = config
 
     def get_means_and_stds(self):
-        size = self.config.params.image_size
+        size = self.config.image_size
         train_transform = transforms.Compose([transforms.Resize((size, size)), 
                                             transforms.ToTensor()])
         batch_size = 1
         trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
-        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=3)
+        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=self.config.workers)
         means = torch.stack([batch[0].mean(dim=[0,2,3]) for batch in train_loader]).mean(0)
         stds = torch.stack([batch[0][0].std(1).std(1) for batch in train_loader]).std(0)
         print("-----------------------------------------------")
-        print("Calculating mean and std. dev. for train set")
-        print("------Means: {means}------")
-        print("------ Stds: {means}------")
+        print(f"Calculating mean and std. dev. for train set")
+        print(f"------Means: {means}------")
+        print(f"------ Stds: {stds}------")
         print("-----------------------------------------------")
         self.means=means
         self.stds=stds
         return means,stds
 
-    def denormalize(self):
+    def denormalize(self,images):
         # norm = x-mean/std => x= norm*std + mean
         trans_inv = transforms.Compose([transforms.Normalize(mean=[0,0,0], std=1/self.stds),transforms.Normalize(mean=-self.means, std=[1,1,1])])
-        return trans_inv
+        return trans_inv(images)
 
 def get_transformations(config):
     size = config.image_size
@@ -81,42 +81,12 @@ def get_transformations(config):
 
     return transforms.Compose(train_transformations),transforms.Compose(test_transformations),normalizer
 
-# def get_data(config):
-#     train_transform,test_transform,normalizer = get_transformations(config)
+def get_data(config):
+    train_transform,test_transform,normalizer = get_transformations(config)
 
-#     batch_size = config.bs
-#     trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
-#     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=config.workers)
-#     testset = Hotdog_NotHotdog(train=False, transform=test_transform)
-#     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=config.workers)
-#     return train_loader,test_loader,normalizer
-
-def get_data(batch_size=4,workers=3,augment=False):
-    transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-    if augment:
-        augmentation = transforms.Compose(
-        [
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=0),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            transforms.RandomErasing(p=0.3)
-        ]
-        )
-
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                            download=True, transform=augmentation if augment else transform)
-
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                        download=True, transform=transform,)
-
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,
-                                            shuffle=True, num_workers=workers,generator=torch.Generator().manual_seed(42))
-    
-    testloader = torch.utils.data.DataLoader(testset, batch_size=64,
-                                            shuffle=False, num_workers=workers)
-
-    return trainloader,testloader,None
+    batch_size = config.bs
+    trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=config.workers)
+    testset = Hotdog_NotHotdog(train=False, transform=test_transform)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=config.workers)
+    return train_loader,test_loader,normalizer

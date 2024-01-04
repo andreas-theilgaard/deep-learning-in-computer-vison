@@ -44,21 +44,24 @@ def main(config):
         filename="{epoch:02d}-{test_acc:.2f}",
     )
 
-    early_stop_callback = EarlyStopping(monitor=f"test_{config.track_metric}", min_delta=0.00, patience=30, verbose=True, mode="max")
+    callbacks = [checkpoint_callback]
+    if config.params.early_stopping:
+        early_stop_callback = EarlyStopping(monitor=f"test_{config.track_metric}", min_delta=0.00, patience=30, verbose=True, mode="max")
+        callbacks.append()
 
     trainer = pl.Trainer(
         devices=config.n_devices, 
         accelerator=config.device, 
         max_epochs = config.params.epochs,
         log_every_n_steps = config.log_every_n,
-        callbacks=[checkpoint_callback,early_stop_callback],
+        callbacks=callbacks,
         logger=WANDB if config.wandb.use_wandb else None,
         inference_mode=False
     ) 
 
     trainer.fit(model, trainloader, val_dataloaders=testloader)
 
-    trainer.test(ckpt_path='best',dataloaders=testloader)
+    trainer.test(dataloaders=testloader)
 
 
 if __name__ == "__main__":

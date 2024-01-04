@@ -1,6 +1,6 @@
-torchmetrics==1.2.1
-torchvision==0.16.2
 torch==2.1.2
+torchvision==0.16.2
+torchmetrics==1.2.1
 wandb==0.16.1
 watermark==2.4.3
 pytorch-lightning==2.1.3

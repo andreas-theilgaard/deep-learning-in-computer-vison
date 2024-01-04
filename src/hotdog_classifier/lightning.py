@@ -8,6 +8,9 @@ import torch
 from src.hotdog_classifier.metrics import METRICS
 import matplotlib.pyplot as plt
 import wandb
+import colorcet as cc
+import numpy as np
+
 
 class HotDogClassifier(pl.LightningModule):
     def __init__(self, config,normalizer=None):
@@ -71,102 +74,87 @@ class HotDogClassifier(pl.LightningModule):
                 for i, ax in enumerate(axes.flatten()):
                     if i>=25:
                         break
-                    ax.imshow(images[i].permute(1,2,0).detach().cpu().numpy())
+                    image_normalized = images[i] if not self.config.params.normalize else self.normalizer.denormalize(images[i])
+                    ax.imshow(image_normalized.permute(1,2,0).detach().cpu().numpy())
                     ax.axis('off')
-                    ax.set_title(f"Pred: {self.mapper[preds[i].detach().item()]}\nLabel: {self.mapper[labels[i].detach().item()]}")
+                    pred,label = self.mapper[preds[i].detach().item()],self.mapper[labels[i].detach().item()]
+                    color = 'green' if pred==label else 'red'
+                    ax.set_title(f"Pred: {pred}\nLabel: {label}",color=color)
                 plt.tight_layout()   
                 #wandb_logger.log_image(key="sample_images", images=images, caption=captions)
                 self.logger.experiment.log({f"{type_} Batch {batch_idx} predictions": wandb.Image(fig)})  
                 plt.close(fig)
-        if type_=='Final_test':
-            if batch_idx in [7]:
+            if type_=='Final_test':
+                if batch_idx in [0,2,4,6,8,10,16,20]:
+                    fig = self.plot_grid(images=images[0:4,:])
+                    self.logger.experiment.log({f"SmoothGrad {type_} Batch {batch_idx}": wandb.Image(fig)})  
 
-                for saliency_method in ['VanillaGrad']:
+    def get_mask(self,image_tensor, target_class=None):
+        image_tensor = image_tensor.clone()
+        image_tensor.requires_grad = True
+        image_tensor.retain_grad()
 
-                    if saliency_method == 'VanillaGrad':
-                        fig,axes = plt.subplots(5,5,figsize=(16,10))
-                        for i, ax in enumerate(axes.flatten()):
-                            if i>=25:
-                                break
-                            saliency = self.VanillaGradient(images[i])
-                            ax.imshow(saliency,cmap='hot')
-                            ax.axis('off')
+        logits = self.model(image_tensor)
+        target = torch.zeros_like(logits)
+        target[0][target_class if target_class else logits.topk(1, dim=1)[1]] = 1
+        self.model.zero_grad()
+        logits.backward(target)
+        return image_tensor.grad.detach().cpu()[0].permute(1,2,0).numpy()
 
-                        plt.tight_layout()   
-                        #wandb_logger.log_image(key="sample_images", images=images, caption=captions)
-                        #self.logger.experiment.log({f"{type_} Batch {batch_idx} predictions": wandb.Image(fig)})  
-                        plt.savefig("ged.png")
-
-
-    def VanillaGradient(self,image,target_class=None):
-        import numpy as np
-        self.eval()
-        with torch.set_grad_enabled(True):
+    def SmoothGrad(self,image,std,n_samples,target_class=None):
+        if len(image.shape)!=4:
             image = image.unsqueeze(0)
-            image_tensor = image.clone()
-            image_tensor.requires_grad = True
-            image_tensor.retain_grad()
+        image_tensor = image.clone()
+        std = std * (torch.max(image_tensor) - torch.min(image_tensor)).detach().cpu().numpy()
+        batch, channels, width, height = image_tensor.size()
+        grad_sum = torch.zeros((width, height, channels))
+        for sample in range(n_samples):
+            noise = torch.empty(image_tensor.size()).normal_(0, std).to(image_tensor.device)
+            noise_image = image_tensor + noise
+            grad_sum += self.get_mask(image_tensor=noise_image, target_class=target_class)
+        saliency_map = grad_sum / n_samples
+        return saliency_map
 
-            logits = self.model(image_tensor)
-            target = torch.zeros_like(logits)
+    def normalize(self,mask, vmin=None, vmax=None, percentile=99):
+        if vmax is None:
+            vmax = np.percentile(mask, percentile)
+        if vmin is None:
+            vmin = np.min(mask)
+        return (mask - vmin) / (vmax - vmin + 1e-10)
 
-            target[0][target_class if target_class else logits.topk(1, dim=1)[1]] = 1
-            self.model.zero_grad()
-            logits.backward(target)
-            return image_tensor.grad.detach().cpu()[0].permute(1,2,0).numpy()
+    def show_mask(self,mask, title='', cmap=None, alpha=None, norm=True, axis=None):
+        if norm:
+            mask = self.normalize(mask)
+        (vmin, vmax) = (-1, 1) if cmap == cc.cm.bkr else (0, 1)
+        axis.imshow(mask, cmap=cmap, alpha=alpha, vmin=vmin, vmax=vmax, interpolation='lanczos')
+        if title:
+            axis.set_title(title)
+        axis.axis('off')
 
-    #smoothgrad
+    def make_grayscale(self,mask):
+        return np.sum(mask, axis=2)
 
-    # def saliency_map(self,image,saliency_method='VanillaGrad'):
-    #     import numpy as np
-    #     self.eval()
-    #     image = image.unsqueeze(0)
-    #     image = image.requires_grad_(True)#torch.autograd.Variable(image.to(self.config.device), requires_grad=True)
+    def make_black_white(self,mask):
+        return self.make_grayscale(np.abs(mask))
 
-    #     if saliency_method =='VanillaGrad':
-    #         output = self(image)
-    #         index = torch.argmax(output)
-    #         # one_hot = torch.zeros((1, output.size()[-1]))
-    #         # one_hot[0][index] = 1
-    #         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
-    #         one_hot[0][index] = 1
-    #         one_hot_tensor = torch.from_numpy(one_hot).to(self.config.device).requires_grad_(True) #torch.nn.Parameter(one_hot.to(self.config.device))#torch.autograd.Variable(one_hot.to(self.config.device), requires_grad=True)
-    #         #one_hot = torch.sum(one_hot * output)
-    #         one_hot_tensor = (one_hot_tensor * output).sum()
-    #         one_hot_tensor.backward()
-    #         grad = image.grad.data.cpu().numpy()
-    #         grad = grad[0, :, :, :]
-    #         return grad
+    def plot_grid(self,images,std_list=[0,0.05,0.1,0.2,0.3,0.5],n_samples=25,norm=True):
+        std_ranges = ['image']+std_list
+        fig,axes = plt.subplots(images.shape[0],len(std_ranges),figsize=(15,8),tight_layout=True)
+        for image_i in range(images.shape[0]):
+            for col_index,std in enumerate(std_ranges):
+                if std != "image":
+                    saliency_map = self.SmoothGrad(image=images[image_i],std=std,n_samples=n_samples)
+                    bw_mask = self.make_black_white(saliency_map.numpy())
+                    if norm:
+                        bw_mask = self.normalize(bw_mask)
+                        (vmin, vmax) = (0, 1)
+                    axes[image_i,col_index].imshow(bw_mask, cmap=cc.cm.gray, alpha=None, vmin=vmin, vmax=vmax, interpolation='lanczos')
+                else:
+                    image_normalized = images[image_i] if not self.config.params.normalize else self.normalizer.denormalize(images[image_i])
+                    axes[image_i,col_index].imshow(image_normalized.cpu().permute(1,2,0).numpy())
 
-        # n_samples = 25
-        # for _ in range(n_samples):
-        #     image = torch.autograd.Variable(image,requires_grad=True)
-        #     output = self(image)
-        #     output_idx = output.argmax(dim=1)
-        #     output_max = output[0, output_idx]
-        #     image.grad.data.zero_()
-        #     output_max.backward(retain_graph=True)
-        #     grad = image.grad.data
-        #     total_gradients += grad * grad
-        # smooth_saliency = total_gradients[0,:,:,:] / n_samples     
-        # mask99 = torch.quantile(smooth_saliency, 0.99)
-        # smooth_saliency = torch.clamp(smooth_saliency, min=0, max=mask99)
-        # smooth_saliency = (smooth_saliency - smooth_saliency.min()) / (smooth_saliency.max() - smooth_saliency.min())
-        # return smooth_saliency
+                if image_i==0:
+                    axes[image_i,col_index].set_title(std)
+                axes[image_i,col_index].axis('off')
+        return fig
 
-
-    # def saliency_map(self, image):
-    #     self.eval()
-    #     with torch.set_grad_enabled(True):
-    #         image = image.unsqueeze(0)
-    #         image.requires_grad = True
-    #         output = self(image)
-    #         logit, _ = torch.max(output, 1)
-    #         logit.backward()
-    #         saliency, _ = torch.max(torch.abs(image.grad[0]), dim=0)
-    #         saliency = (saliency - saliency.min())/(saliency.max()-saliency.min())
-
-    #         if self.config.params.normalize:
-    #             with torch.no_grad():
-    #                 image = self.normalizer.denormalize(image)
-    #     return image,saliency
