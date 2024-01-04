@@ -43,8 +43,7 @@ class normalize_data:
         train_transform = transforms.Compose([transforms.Resize((size, size)), 
                                             transforms.ToTensor()])
         batch_size = 1
-        trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                            download=True, transform=train_transform)#Hotdog_NotHotdog(train=True, transform=train_transform)
+        trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
         train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=self.config.workers)
         means = torch.stack([batch[0].mean(dim=[0,2,3]) for batch in train_loader]).mean(0)
         stds = torch.stack([batch[0][0].std(1).std(1) for batch in train_loader]).std(0)
