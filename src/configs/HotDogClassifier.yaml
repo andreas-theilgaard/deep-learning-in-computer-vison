@@ -32,6 +32,7 @@ log_every_n: 1
 data_params:
   workers: 4
   augment: True
+  extra_augment: False
   #image_size: 256
   image_width: 512
   image_height: 256

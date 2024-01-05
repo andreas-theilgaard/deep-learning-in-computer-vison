@@ -68,14 +68,20 @@ def get_transformations(config):
     width = config.image_width
     height = config.image_height
     normalizer = None
-
     train_transformations = [transforms.Resize((height, width))]
     test_transformations = [transforms.Resize((height, width)),transforms.ToTensor()]
 
     if config.augment:
         train_transformations.append(transforms.RandomRotation(degrees=(10, 100)))
+    if config.extra_augment:
+        gaus_kernel = (5, 5)
+        color_jit = [0.2, 0.15, 0.1, 0.15]
+        train_transformations.append(transforms.GaussianBlur(gaus_kernel, sigma=(0.01, 2.0)))
+        train_transformations.append(transforms.RandomHorizontalFlip(p=0.3))
+        train_transformations.append(transforms.RandomVerticalFlip(p=0.3))
+        train_transformations.append(transforms.ColorJitter(*color_jit))
+    
     train_transformations.append(transforms.ToTensor())
-
     if config.normalize:
         normalizer = normalize_data(config=config)
         means,stds = normalizer.get_means_and_stds()
