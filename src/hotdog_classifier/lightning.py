@@ -19,11 +19,11 @@ class HotDogClassifier(pl.LightningModule):
         self.config = config
         self.save_hyperparameters()
         self.model = get_model(config)
-        self.criterion = torch.nn.CrossEntropyLoss() if config.params.n_classes != 1 else torch.nn.BCEWithLogitsLoss()
+        self.criterion = torch.nn.CrossEntropyLoss() if config.n_classes != 1 else torch.nn.BCEWithLogitsLoss()
         self.evaluator = METRICS(config=config)
         self.model_checkpoint = ModelCheckpoint(
             monitor = f"test_{config.track_metric}",
-            verbose = config.params.verbose,
+            verbose = config.verbose,
             filename = "{epoch}_{val_loss:.4f}",
         )
         self.mapper = {0:'Hotdog',1:'Not Hotdog'}
@@ -94,8 +94,8 @@ class HotDogClassifier(pl.LightningModule):
             self.test_preds_epoch = preds
             self.test_labels_epoch = labels
         else:
-            self.test_preds_epoch = torch.cat((self.preds_epoch, preds), 0)
-            self.test_labels_epoch = torch.cat((self.labels_epoch, labels), 0)  
+            self.test_preds_epoch = torch.cat((self.test_preds_epoch, preds), 0)
+            self.test_labels_epoch = torch.cat((self.test_labels_epoch, labels), 0)  
         return loss     
     
 
@@ -113,7 +113,7 @@ class HotDogClassifier(pl.LightningModule):
                 for i, ax in enumerate(axes.flatten()):
                     if i>=25:
                         break
-                    image_normalized = images[i] if not self.config.params.normalize else self.normalizer.denormalize(images[i])
+                    image_normalized = images[i] if not self.config.data_params.normalize else self.normalizer.denormalize(images[i])
                     ax.imshow(((image_normalized.float().permute(1,2,0).detach().cpu().numpy())*255).astype('uint8'))
                     ax.axis('off')
                     pred,label = self.mapper[preds[i].detach().item()],self.mapper[labels[i].detach().item()]
@@ -141,7 +141,7 @@ class HotDogClassifier(pl.LightningModule):
                         (vmin, vmax) = (0, 1)
                     axes[image_i,col_index].imshow(bw_mask, cmap=cc.cm.gray, alpha=None, vmin=vmin, vmax=vmax, interpolation='lanczos')
                 else:
-                    image_normalized = images[image_i] if not self.config.params.normalize else self.normalizer.denormalize(images[image_i])
+                    image_normalized = images[image_i] if not self.config.data_params.normalize else self.normalizer.denormalize(images[image_i])
                     axes[image_i,col_index].imshow(((image_normalized.float().permute(1,2,0).detach().cpu().numpy())*255).astype('uint8'))
 
                 if image_i==0:
@@ -205,5 +205,3 @@ class HotDogClassifier(pl.LightningModule):
 
     def make_black_white(self,mask):
         return self.make_grayscale(np.abs(mask))
-
-

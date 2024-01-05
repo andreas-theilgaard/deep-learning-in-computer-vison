@@ -181,3 +181,5 @@ cython_debug/
 /wandb
 /dtu_dlcv
 /lightning_logs
+*.err
+*.out
