@@ -54,7 +54,8 @@ def main(config):
         log_every_n_steps = config.log_every_n,
         callbacks=callbacks,
         logger=WANDB if config.wandb.use_wandb else None,
-        inference_mode=False
+        inference_mode=False,
+        accumulate_grad_batches=2,
     ) 
 
     trainer.fit(model, trainloader, val_dataloaders=testloader)

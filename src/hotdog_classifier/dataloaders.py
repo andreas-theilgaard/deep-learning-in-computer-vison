@@ -39,8 +39,10 @@ class normalize_data:
         self.config = config
 
     def get_means_and_stds(self):
-        size = self.config.image_size
-        train_transform = transforms.Compose([transforms.Resize((size, size)), 
+        width = self.config.image_width
+        height = self.config.image_height
+
+        train_transform = transforms.Compose([transforms.Resize((height, width)), 
                                             transforms.ToTensor()])
         batch_size = 1
         trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
@@ -62,16 +64,24 @@ class normalize_data:
         return trans_inv(images)
 
 def get_transformations(config):
-    size = config.image_size
+    #size = config.image_size
+    width = config.image_width
+    height = config.image_height
     normalizer = None
-
-    train_transformations = [transforms.Resize((size, size))]
-    test_transformations = [transforms.Resize((size, size)),transforms.ToTensor()]
+    train_transformations = [transforms.Resize((height, width))]
+    test_transformations = [transforms.Resize((height, width)),transforms.ToTensor()]
 
     if config.augment:
         train_transformations.append(transforms.RandomRotation(degrees=(10, 100)))
+    if config.extra_augment:
+        gaus_kernel = (5, 5)
+        color_jit = [0.2, 0.15, 0.1, 0.15]
+        train_transformations.append(transforms.GaussianBlur(gaus_kernel, sigma=(0.01, 2.0)))
+        train_transformations.append(transforms.RandomHorizontalFlip(p=0.3))
+        train_transformations.append(transforms.RandomVerticalFlip(p=0.3))
+        train_transformations.append(transforms.ColorJitter(*color_jit))
+    
     train_transformations.append(transforms.ToTensor())
-
     if config.normalize:
         normalizer = normalize_data(config=config)
         means,stds = normalizer.get_means_and_stds()
