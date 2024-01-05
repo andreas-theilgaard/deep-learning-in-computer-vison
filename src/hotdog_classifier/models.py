@@ -4,6 +4,8 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
+import torchvision
+
 
 
 def block(input:int,output:list,enable_dropout=True,kernel_size=3,padding=1,dropout_rate=0.25):
@@ -49,13 +51,19 @@ class BASIC_CNN(nn.Module):
         x = self.fc3(x)
         return x
 
-class efficientnet(nn.Module):
+class Pretrained(nn.Module):
     def __init__(self,config):
         super().__init__()
         self.config = config
-        self.model = timm.create_model('efficientnet_b4', pretrained=config.params.pretrained, num_classes=config.params.n_classes,drop_rate=config.params.dropout_rate if config.params.enable_dropout else 0)
-        self.freeze_weights()
-    
+        if self.config.params.model == 'efficientnet':
+            self.model = timm.create_model('efficientnet_b4', pretrained=config.params.pretrained, num_classes=config.params.n_classes,drop_rate=config.params.dropout_rate if config.params.enable_dropout else 0)
+            self.freeze_weights()
+        elif self.config.params.model == 'googlenet':
+            self.model = torchvision.models.googlenet(pretrained=True)
+            for param in self.model.parameters():
+                param.requires_grad = False
+            self.model.fc = nn.Linear(self.model.fc.in_features, config.params.n_classes)
+
     def forward(self,x):
         return self.model(x)
 
