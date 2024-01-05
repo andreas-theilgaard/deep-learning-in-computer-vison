@@ -1,0 +1,7 @@
+name: 'googlenet'
+training:
+  lr: 0.001
+  weight_decay: 0
+  optimizer: 'Adam'
+  epochs: 30
+  early_stopping: False

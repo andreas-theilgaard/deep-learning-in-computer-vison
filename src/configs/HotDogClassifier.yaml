@@ -1,0 +1,37 @@
+defaults:
+  - _self_
+  - models: googlenet # BASIC_CNN, googlenet
+
+version: 'HotDog Classifier v1'
+
+hydra:
+  run:
+    dir: ./outputs/${models.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+################# Experiment Settings #################
+device: 'cuda'
+debug: False
+experiment_name: myawesome_experiments
+n_devices: -1
+n_classes: 2
+verbose: True
+
+################# W&B Settings #################
+wandb:
+  use_wandb: True
+  project: "HotDog Classifier"
+  group: ${models.name}
+  tag: 'Testing'
+
+
+################# Metrics Settings #################
+metrics: ['acc','loss']
+track_metric: 'acc'
+log_every_n: 1
+
+data_params:
+  workers: 4
+  augment: True
+  image_size: 256
+  normalize: True 
+  bs: 64

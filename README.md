@@ -27,6 +27,15 @@ Finally, install any dependency to be able to run the project
 pip install -r requirements.txt
 ```
 
+If you want to run experiments using wandb then go to the wandb team folder
+dtu_dlcv and find your api key and copy it. Then run the following command.
+```
+wandb login --relogin 
+```
+and paste your key when prompted.
+
+That is it.
+
 
 ## Project structure
 
