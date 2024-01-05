@@ -33,8 +33,9 @@ class BASIC_CNN(nn.Module):
         self.block3 = block(64,[64,32],enable_dropout=training_args.enable_dropout,dropout_rate=training_args.dropout_rate,apply_batchnorm=training_args.apply_batchnorm) 
         self.block4 = block(32,[32,16],enable_dropout=training_args.enable_dropout,dropout_rate=training_args.dropout_rate,apply_batchnorm=training_args.apply_batchnorm) 
         # # Linear Layers
-        img_dim_last_block = int(config.data_params.image_size/(2**4))
-        self.fc1 = nn.Linear(16 * img_dim_last_block * img_dim_last_block, 128)
+        img_dim_last_block_width = int(config.data_params.image_width/(2**4))
+        img_dim_last_block_height= int(config.data_params.image_height/(2**4))
+        self.fc1 = nn.Linear(16 * img_dim_last_block_width * img_dim_last_block_height, 128)
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, config.n_classes)
 

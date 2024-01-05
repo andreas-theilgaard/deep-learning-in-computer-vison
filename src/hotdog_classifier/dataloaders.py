@@ -39,8 +39,10 @@ class normalize_data:
         self.config = config
 
     def get_means_and_stds(self):
-        size = self.config.image_size
-        train_transform = transforms.Compose([transforms.Resize((size, size)), 
+        width = self.config.image_width
+        height = self.config.image_height
+
+        train_transform = transforms.Compose([transforms.Resize((height, width)), 
                                             transforms.ToTensor()])
         batch_size = 1
         trainset = Hotdog_NotHotdog(train=True, transform=train_transform)
@@ -62,11 +64,13 @@ class normalize_data:
         return trans_inv(images)
 
 def get_transformations(config):
-    size = config.image_size
+    #size = config.image_size
+    width = config.image_width
+    height = config.image_height
     normalizer = None
 
-    train_transformations = [transforms.Resize((size, size))]
-    test_transformations = [transforms.Resize((size, size)),transforms.ToTensor()]
+    train_transformations = [transforms.Resize((height, width))]
+    test_transformations = [transforms.Resize((height, width)),transforms.ToTensor()]
 
     if config.augment:
         train_transformations.append(transforms.RandomRotation(degrees=(10, 100)))
