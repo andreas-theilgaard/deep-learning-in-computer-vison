@@ -183,3 +183,4 @@ cython_debug/
 /lightning_logs
 *.err
 *.out
+*.pth
