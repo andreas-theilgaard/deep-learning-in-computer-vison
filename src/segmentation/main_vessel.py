@@ -29,15 +29,15 @@ config = OmegaConf.create({
     'img_size': 512, # org size mean 575 x 766
     'batch_size': 2, #6
     'seed': 42,
-    'workers': 3, #3
+    'workers': 0, #3
     'lr': 1e-4,
-    'epochs': 50,#50
-    'loss': 'WeightedBCE', # BCE, WeightedBCE
+    'epochs': 30,#50
+    'loss': 'BCE', # BCE, WeightedBCE
     'set_seed': True,
-    'device': 'cuda',
-    'model': 'EncDec', #EncDec, SimpleUNET
+    'device': 'mps',
+    'model': 'UNET', #EncDec, SimpleUNET
     'use_wandb': True,
-    'tag': 'REAL',
+    'tag': 'QUICK',
     'pos_total': None,
     'neg_total': None,
 }) 
@@ -57,7 +57,7 @@ class DRIVE(torch.utils.data.Dataset):
     def __init__(self,transform,idx_list):
         'Initialization'
         self.transform = transform
-        self.data_path = "/dtu/datasets1/02516/DRIVE/training"
+        self.data_path = "dtu/datasets1/02516/DRIVE/training"
         self.image_paths = np.array(sorted(glob.glob(f"{self.data_path}/images/*.tif")))[idx_list]
         self.label_paths = np.array(sorted(glob.glob(f"{self.data_path}/1st_manual/*.gif")))[idx_list]
 
@@ -92,7 +92,7 @@ def get_data():
                             ToTensorV2()
                         ], is_check_shapes=False) 
 
-    data_path = "/dtu/datasets1/02516/DRIVE/training"
+    data_path = "dtu/datasets1/02516/DRIVE/training"
     image_paths = sorted(glob.glob(f"{data_path}/images/*.tif"))
     train_idx,val_test_idx = train_test_split(list(range(len(image_paths))),train_size=0.6,random_state=config.seed)
     val_idx,test_idx = train_test_split(val_test_idx,train_size=0.5,random_state=42)
